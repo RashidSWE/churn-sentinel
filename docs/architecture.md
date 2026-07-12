@@ -2,9 +2,9 @@
 **status**: Accepted, **Last Updated**: 2026/07/07 **Supersedes**: Initial draft
 ----
 
-## 1. Puorpose
+## 1. Purpose
 This document defines the architecture of churn-sentinel before implementation:
-Component responsibilities, System boundaries, data flow, and the API contract. It's the reference for "how does thsi piece talk to that piece" questions during phase 3+
+Component responsibilities, System boundaries, data flow, and the API contract. It's the reference for "how does this piece talk to that piece" questions during phase 3+
 
 ## 2. Archtectural style
 Each layer depends on the layer below it( Layered architecture )
@@ -33,7 +33,7 @@ Benefits: Separation of concerns, easier testing per layer, the model can be swa
 | Utils | `src/churn_sentinel/utils/` | Shared helpers with no home in the above (e.g. logging setup). **New addition**, same as above. |
 
 ## Data Flow
-Training and serving are separate lifecycles with different trigers and different frequencies. Keepign them as two diagrams( not one) makes that explicit.
+Training and serving are separate lifecycles with different triggers and different frequencies. Keeping them as two diagrams( not one) makes that explicit.
 
 **4.1 Training flow** — runs manually or on a schedule, is allowed to be slow:
  
@@ -109,7 +109,7 @@ The "transform, not fit" distinction matters: at inference time we're reusing ex
 }
 ```
  
-Field names and types mirror `get_feature_columns()` in `churn_sentinel.data.features` exactly — this is deliberate, so the Pydantic model and the training feature list can be checked against each other rather than drifting apart silently.
+Field names and types mirror `get_feature_columns()` in `churn_sentinel.data.features` exactly — this is deliberate, so the Pydantic model and the training feature list can be checked against each other.
  
 **Success response (200):**
  
@@ -120,16 +120,16 @@ Field names and types mirror `get_feature_columns()` in `churn_sentinel.data.fea
 }
 ```
  
-`probability` is the raw model output — no "confidence: High/Medium/Low" bucketing. Turning a probability into a business label requires defined thresholds, which is a real decision we haven't made (would need its own ADR informed by the precision/recall tradeoff in ADR-001). Shipping the raw number now avoids inventing an unstated threshold; bucketing can be added later as an explicit, documented decision.
+`probability` is the raw model output — no "confidence: High/Medium/Low" bucketing. Turning a probability into a business label requires defined thresholds, Shipping the raw number now avoids inventing an unstated threshold; bucketing can be added later as an explicit, documented decision.
  
-**Validation error response (422):** FastAPI/Pydantic's default shape is used as-is rather than wrapped in a custom format — no value added by reinventing it, and it stays consistent with the auto-generated OpenAPI docs.
+**Validation error response (422):** FastAPI/Pydantic's default shape is used as-is, it stays consistent with the auto-generated OpenAPI docs.
  
 **Internal error response (500):**
  
 ```json
 {
   "error": "InternalError",
-  "message": "Prediction failed. Please try again or contact support."
+  "message": "Prediction failed."
 }
 ```
  
@@ -137,7 +137,7 @@ Deliberately generic — internal exception details are logged (with a request I
  
 ### 5.2 `GET /health`
  
-Distinguishes **liveness** (is the process running?) from **readiness** (can it actually serve a correct prediction right now?) — same concept Kubernetes uses, even without k8s in play yet.
+Distinguishes **liveness** (is the process running?) from **readiness** (can it actually serve a correct prediction right now?) — same concept Kubernetes uses.
  
 ```json
 {
@@ -155,7 +155,7 @@ or, per the decision to start anyway but report unhealthy if the model failed to
 }
 ```
  
-**HTTP status code:** `200` when healthy, **`503`** when unhealthy — deploy platforms and load balancers typically key off the status code, not the body, so this isn't cosmetic.
+**HTTP status code:** `200` when healthy, **`503`** when unhealthy — deploy platforms and load balancers typically key off the status code, not the body.
  
 ### 5.3 `GET /model-info`
  
@@ -167,7 +167,7 @@ or, per the decision to start anyway but report unhealthy if the model failed to
 }
 ```
  
-Read from `metadata.json` — lets a client (or you, debugging) check what's actually deployed without redeploying anything.
+Read from `metadata.json` — lets a client check what's actually deployed without redeploying anything.
  
 ## 6. Model Versioning & Registry
  
@@ -191,7 +191,7 @@ models/
 ```
  
 **Decisions made:**
-- `active_version` is written by a **deliberate promotion step**, not automatically at the end of every training run. A training run that produces a worse model shouldn't silently replace a working one in production — promotion is a conscious choice (even if, for now, that "step" is just you manually editing the file after checking the metrics).
+- `active_version` is written by a **deliberate promotion step**, not automatically at the end of every training run. A training run that produces a worse model shouldn't silently replace a working one in production — promotion is a conscious choice.
 - The API reads `metadata.json` **once, at startup**. Picking up a newly-promoted model requires a redeploy/restart for v1. Polling for changes without a restart is a possible future enhancement, not needed now.
 ## 7. Deployment Architecture
  
@@ -205,7 +205,7 @@ Internet
    │
 FastAPI Application (Docker container)
    │
-Trained Model Pipeline (loaded from models/ at startup, per §6)
+Trained Model Pipeline (loaded from models/ at startup)
 ```
  
 **Future (not v1):** load balancer → multiple FastAPI containers → shared/external model storage, once there's a reason to scale beyond one instance.
@@ -223,7 +223,7 @@ Trained Model Pipeline (loaded from models/ at startup, per §6)
  
 `structlog` for structured logs. Log: incoming request ID, prediction + probability, model version used, latency, errors, startup events.
  
-**Do not log:** the full raw request payload verbatim. Even though this dataset has no direct PII beyond `customerID` (already dropped before reaching the model), logging every field of every request is unnecessary exposure for no benefit — log the request ID and the outcome, not the full input.
+**Do not log:** the full raw request payload verbatim. Even though this dataset has no direct PII beyond `customerID` (already dropped before reaching the model), logging every field of every request is unnecessary.
  
 ## 10. Security Considerations
  
