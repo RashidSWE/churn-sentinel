@@ -1,6 +1,7 @@
 import pandas as pd
+from churn_sentinel.config.settings import settings
 
-df = pd.read_csv("/Users/rashka/dev/Personal_Projects/churn-sentinel/data/raw/Telco-Customer-Churn.csv")
+df = pd.read_csv(settings.raw_path)
 
 print("=== Shape ===")
 print(df.shape)

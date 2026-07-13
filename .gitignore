@@ -5,6 +5,16 @@ build/
 dist/
 wheels/
 *.egg-info
+.DS_Store
+*.github
+/.pytest_cache
 
+.python-version
+.gitkeep
 # Virtual environments
 .venv
+.env
+.env.example
+
+
+__init__.py
